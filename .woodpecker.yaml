@@ -1,7 +1,7 @@
 variables:
 #   Developers are not expected to actually use this CI image locally, however,
 #   using this image avoid downloading a bunch of PyPI packages for each CI run.
-  - &ci_image 'cont-reg.bjodah.se:443/bjodah/triceratops-6:35'
+  - &ci_image 'cont-reg.bjodah.se:443/bjodah/triceratops-6:39'
 
 when:
   - event: [push, pull_request]
@@ -10,9 +10,13 @@ steps:
 
   - name: restore-cache
     image: *ci_image
+    environment:
+      ARTIFACTS_PASS:
+        from_secret: ARTIFACTS_PASS
+      FTP_SERVER:
+        from_secret: FTP_SERVER
     commands:
       - curl ftp://chempy:$${ARTIFACTS_PASS}@$${FTP_SERVER}/cache/cache-ci.tar | tar x
-    secrets: [ ARTIFACTS_PASS, FTP_SERVER ]
     when:
      - event: push
        repo: bjodah/chempy
@@ -20,7 +24,7 @@ steps:
   - name: test-suite
     image: *ci_image
     environment:
-      - CHEMPY_SKIP_NO_TESTS=1
+      CHEMPY_SKIP_NO_TESTS: 1
     commands:
       - mkdir -p deploy/public_html/branches/${CI_COMMIT_BRANCH}/
       - bash -l .ci/run-01-install-deps-create-sdist.sh
@@ -32,7 +36,7 @@ steps:
   - name: render-notebooks
     image: *ci_image
     environment:
-      - CHEMPY_DEPRECATION_FILTER=ignore
+      CHEMPY_DEPRECATION_FILTER: ignore
     commands:
       - mkdir -p deploy/public_html/branches/${CI_COMMIT_BRANCH}/
       - bash -l .ci/run-01-install-deps-create-sdist.sh
@@ -42,7 +46,7 @@ steps:
   - name: compile-documentation
     image: *ci_image
     environment:
-      - CHEMPY_DEPRECATION_FILTER=ignore
+      CHEMPY_DEPRECATION_FILTER: ignore
     commands:
       - bash -lc '. .ci/_source_common_env.sh; ./scripts/generate_docs.sh'
       - cp LICENSE doc/_build/html/
@@ -53,11 +57,15 @@ steps:
 
   - name: rebuild-cache
     image: *ci_image
+    environment:
+      ARTIFACTS_PASS:
+        from_secret: ARTIFACTS_PASS
+      FTP_SERVER:
+        from_secret: FTP_SERVER
     commands:
       - find ./cache-ci/ -type f -mtime +90 -exec rm {} \;
       - tar cf cache-ci.tar ./cache-ci/
       - curl -T cache-ci.tar ftp://chempy:$${ARTIFACTS_PASS}@$${FTP_SERVER}/cache/
-    secrets: [ ARTIFACTS_PASS, FTP_SERVER ]
     when:
      - event: push
        repo: bjodah/chempy
@@ -66,10 +74,14 @@ steps:
 
   - name: deploy-public-html
     image: *ci_image
+    environment:
+      ARTIFACTS_PASS:
+        from_secret: ARTIFACTS_PASS
+      FTP_SERVER:
+        from_secret: FTP_SERVER
     commands:
       - tar czf chempy-${CI_COMMIT_BRANCH}.tar.gz ./deploy/public_html
       - curl -T chempy-${CI_COMMIT_BRANCH}.tar.gz ftp://chempy:$${ARTIFACTS_PASS}@$${FTP_SERVER}/public_html/
-    secrets: [ ARTIFACTS_PASS, FTP_SERVER ]
     when:
      - event: push
        repo: bjodah/chempy
