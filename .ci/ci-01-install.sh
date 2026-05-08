@@ -18,7 +18,7 @@ for pypkg in pyodeint pygslodeiv2 pycompilation pycodeexport pycvodes pykinsol s
             pypkg_fqn="git+https://github.com/bjodah/pygslodeiv2@cython-except-plus#egg=pygslodeiv2"
             ;;
         pycompilation)
-            pypkg_fqn="git+https://github.com/bjodah/pycompilation@use-importlib-rather-than-imp#egg=pycompilation"
+            pypkg_fqn="git+https://github.com/bjodah/pycompilation@master#egg=pycompilation"
             ;;
         pycodeexport)
             pypkg_fqn="git+https://github.com/bjodah/pycodeexport@qulify-extension-name-and-new-ci#egg=pycodeexport"
