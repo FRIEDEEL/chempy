@@ -74,6 +74,8 @@ _roots_ss = """
     //fflush(stderr);
     //return AnyODE::Status::unrecoverable_error;
     out[0] = tot/ny - m_special_settings[0];
+    this->nrev++;
+    return AnyODE::Status::success;
 """
 
 _constr_special_settings = r"""
@@ -158,7 +160,8 @@ def get_native(rsys, odesys, integrator, skip_keys=(0,), steady_state_root=False
         native_code_kw['namespace_override']['p_nroots'] = ' return %d; ' % len(conc_roots)
         native_code_kw['namespace_override']['p_roots'] = (
             ''.join(['    out[%(i)d] = y[%(j)d] - m_special_settings[%(i)d];\n' %
-                     dict(i=i, j=odesys.names.index(k)) for i, k in enumerate(conc_roots)])
+                     dict(i=i, j=odesys.names.index(k)) for i, k in enumerate(conc_roots)]) +
+            '    return AnyODE::Status::success;\n'
         )
         if 'p_constructor' not in ns_extend:
             ns_extend['p_constructor'] = []
