@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import (absolute_import, division, print_function)
 
-from pkg_resources import parse_requirements, parse_version
-
 import os
 from operator import lt, le, eq, ne, ge, gt
 import re
@@ -59,9 +57,9 @@ class requires(object):
             name, rel, version = _parse_requirement(req)
 
             try:
-                mod = __import__(req.project_name)
+                mod = __import__(name)
             except ImportError:
-                self.missing.append(req.project_name)
+                self.missing.append(name)
             else:
                 if version is not None:
                     try:
