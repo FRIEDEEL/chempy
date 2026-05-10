@@ -1,89 +1,54 @@
 variables:
 #   Developers are not expected to actually use this CI image locally, however,
 #   using this image avoid downloading a bunch of PyPI packages for each CI run.
-  - &ci_image 'cont-reg.bjodah.se:443/bjodah/triceratops-6:33'
+  - &ci_image 'cont-reg.bjodah.se:443/bjodah/triceratops-6:40'
 
 when:
-  - event: [push]
+  - event: [push, pull_request]
 
 steps:
 
   - name: restore-cache
     image: *ci_image
+    environment:
+      ARTIFACTS_PASS:
+        from_secret: ARTIFACTS_PASS
+      FTP_SERVER:
+        from_secret: FTP_SERVER
     commands:
       - curl ftp://chempy:$${ARTIFACTS_PASS}@$${FTP_SERVER}/cache/cache-ci.tar | tar x
-    secrets: [ ARTIFACTS_PASS, FTP_SERVER ]
     when:
      - event: push
        repo: bjodah/chempy
 
-  - name: install
-    image: *ci_image
-    environment:
-      - CPLUS_INCLUDE_PATH=/opt-3/boost-1.88.0/include
-      - SUNDBASE=/opt-3/sundials-6.7.0-release
-      - CPATH=/usr/include/suitesparse  # sunlinsol_klu.h includes "klu.h"
-    commands:
-      - export CACHE_ROOT=$(pwd)/cache-ci
-      - export PYTHONUSERBASE=$CACHE_ROOT/pyusrb
-      - if [ ! -d $PYTHONUSERBASE ]; then mkdir -p $PYTHONUSERBASE; fi
-      - .ci/ci-01-install.sh
-
   - name: test-suite
     image: *ci_image
     environment:
-      - CPLUS_INCLUDE_PATH=/opt-3/boost-1.87.0/include
-      - SUNDBASE=/opt-3/sundials-6.7.0-release
-      - CPATH=/usr/include/suitesparse  # sunlinsol_klu.h includes "klu.h"
-      - CHEMPY_SKIP_NO_TESTS=1
+      CHEMPY_SKIP_NO_TESTS: 1
     commands:
-      - export CACHE_ROOT=$(pwd)/cache-ci
-      - export PYTHONUSERBASE=$CACHE_ROOT/pyusrb
-      - export CPATH=$SUNDBASE/include:$CPATH
-      - export LIBRARY_PATH=$SUNDBASE/lib
-      - export LD_LIBRARY_PATH=$SUNDBASE/lib
-      - .ci/ci-02-run-tests.sh
-      - cp -r htmlcov/ deploy/public_html/branches/${CI_COMMIT_BRANCH}/
-      - ./.ci/grep-for-merge-blocking-token.sh
-      - export CHEMPY_DEPRECATION_FILTER=ignore
-      - python3 -m virtualenv /tmp/test_sdist
-      - python3 -m virtualenv /tmp/test_git_archive
-      - cd deploy/public_html/branches/${CI_COMMIT_BRANCH}
-      - unset CHEMPY_SKIP_NO_TESTS  # I can't get pip to install extras when using local file...
-      - bash -c "source /tmp/test_sdist/bin/activate; pip install --cache-dir $CACHE_ROOT/pip_cache file://$(realpath $(eval ls chempy-*.tar.gz))#chempy[all] pytest; pytest --pyargs chempy"
-      - bash -c "source /tmp/test_git_archive/bin/activate; pip install --cache-dir $CACHE_ROOT/pip_cache file://$(realpath chempy-head.zip)#chempy[all] pytest; pytest --pyargs chempy"
-    depends_on:
-      - install
+      - mkdir -p deploy/public_html/branches/${CI_COMMIT_BRANCH}/
+      - bash -l .ci/run-01-install-deps-create-sdist.sh
+      - bash -l .ci/run-02-test-suite.sh
+      - mkdir -p deploy/public_html/branches/${CI_COMMIT_BRANCH}
+      - cp dist/chempy-* deploy/public_html/branches/${CI_COMMIT_BRANCH}/
+
 
   - name: render-notebooks
     image: *ci_image
     environment:
-      - CHEMPY_DEPRECATION_FILTER=ignore
-      - SUNDBASE=/opt-3/sundials-6.7.0-release
-      - CPATH=/usr/include/suitesparse  # sunlinsol_klu.h includes "klu.h"
+      CHEMPY_DEPRECATION_FILTER: ignore
     commands:
-      - export PYTHONUSERBASE=$(pwd)/cache-ci/pyusrb
-      - export CPATH=$SUNDBASE/include:$CPATH
-      - export LIBRARY_PATH=$SUNDBASE/lib
-      - export LD_LIBRARY_PATH=$SUNDBASE/lib
-      - bash -c "source /opt-3/cpython-v3.*-apt-deb/bin/activate; ./scripts/render_notebooks.sh"
-      - ./.ci/grep-for-binary-data.sh
-      - mv index.html index.ipynb.html
-      - cp -r index.* examples/ "deploy/public_html/branches/${CI_COMMIT_BRANCH}"
-    depends_on:
-      - install
+      - mkdir -p deploy/public_html/branches/${CI_COMMIT_BRANCH}/
+      - bash -l .ci/run-01-install-deps-create-sdist.sh
+      - bash -l .ci/run-03-render-notebooks.sh
+      - .ci/grep-for-binary-data.sh
 
   - name: compile-documentation
     image: *ci_image
     environment:
-      - CHEMPY_DEPRECATION_FILTER=ignore
-      - SUNDBASE=/opt-3/sundials-6.7.0-release
+      CHEMPY_DEPRECATION_FILTER: ignore
     commands:
-      - export PYTHONUSERBASE=$(pwd)/cache-ci/pyusrb
-      - export CPATH=$SUNDBASE/include
-      - export LIBRARY_PATH=$SUNDBASE/lib
-      - export LD_LIBRARY_PATH=$SUNDBASE/lib
-      - bash -c "source /opt-3/cpython-v3.*-apt-deb/bin/activate; ./scripts/generate_docs.sh"
+      - bash -lc '. .ci/_source_common_env.sh; ./scripts/generate_docs.sh'
       - cp LICENSE doc/_build/html/
       - cp -r doc/_build/html/ deploy/public_html/branches/${CI_COMMIT_BRANCH}
     depends_on:
@@ -92,11 +57,15 @@ steps:
 
   - name: rebuild-cache
     image: *ci_image
+    environment:
+      ARTIFACTS_PASS:
+        from_secret: ARTIFACTS_PASS
+      FTP_SERVER:
+        from_secret: FTP_SERVER
     commands:
       - find ./cache-ci/ -type f -mtime +90 -exec rm {} \;
       - tar cf cache-ci.tar ./cache-ci/
       - curl -T cache-ci.tar ftp://chempy:$${ARTIFACTS_PASS}@$${FTP_SERVER}/cache/
-    secrets: [ ARTIFACTS_PASS, FTP_SERVER ]
     when:
      - event: push
        repo: bjodah/chempy
@@ -105,14 +74,16 @@ steps:
 
   - name: deploy-public-html
     image: *ci_image
+    environment:
+      ARTIFACTS_PASS:
+        from_secret: ARTIFACTS_PASS
+      FTP_SERVER:
+        from_secret: FTP_SERVER
     commands:
       - tar czf chempy-${CI_COMMIT_BRANCH}.tar.gz ./deploy/public_html
       - curl -T chempy-${CI_COMMIT_BRANCH}.tar.gz ftp://chempy:$${ARTIFACTS_PASS}@$${FTP_SERVER}/public_html/
-    secrets: [ ARTIFACTS_PASS, FTP_SERVER ]
     when:
      - event: push
        repo: bjodah/chempy
     depends_on:
       - compile-documentation
-
-
