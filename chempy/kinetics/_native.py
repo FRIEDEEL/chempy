@@ -171,4 +171,4 @@ def get_native(rsys, odesys, integrator, skip_keys=(0,), steady_state_root=False
         ns_extend['p_includes'] = set()
     ns_extend['p_includes'] |= {"<type_traits>",  "<vector>"}
     native_code_kw["namespace_extend"] = ns_extend
-    return native_sys[integrator].from_other(odesys, native_code_kw=native_code_kw, **kw)
+    return native_sys[integrator].from_other(odesys, **native_code_kw, **kw)

@@ -176,7 +176,7 @@ def get_derived_unit(registry, key):
     Examples
     --------
     >>> m, s = default_units.meter, default_units.second
-    >>> get_derived_unit(SI_base_registry, 'diffusivity') == m**2/s
+    >>> bool(get_derived_unit(SI_base_registry, 'diffusivity') == m**2/s)
     True
 
     """
@@ -314,7 +314,7 @@ def unit_of(expr, simplify=False):
 
     Examples
     --------
-    >>> unit_of(42*pq.second) == unit_of(12*pq.second)
+    >>> bool(unit_of(42*pq.second) == unit_of(12*pq.second))
     True
     >>> unit_of(42)
     1
@@ -504,7 +504,7 @@ def compare_equality(a, b):
     >>> km, m = default_units.kilometre, default_units.metre
     >>> compare_equality(3*km, 3)
     False
-    >>> compare_equality(3*km, 3000*m)
+    >>> bool(compare_equality(3*km, 3000*m))
     True
 
     """
@@ -567,7 +567,7 @@ def linspace(start, stop, num=50, **kwargs):
 
     Examples
     --------
-    >>> abs(linspace(2, 8, num=3)[1] - 5) < 1e-15
+    >>> bool(abs(linspace(2, 8, num=3)[1] - 5) < 1e-15)
     True
 
     """
@@ -584,7 +584,7 @@ def logspace_from_lin(start, stop, num=50):
 
     Examples
     --------
-    >>> abs(logspace_from_lin(2, 8, num=3)[1] - 4) < 1e-15
+    >>> bool(abs(logspace_from_lin(2, 8, num=3)[1] - 4) < 1e-15)
     True
 
     """
@@ -656,7 +656,7 @@ class Backend(object):
         ...
     ValueError: Incompatible units
     >>> import numpy as np
-    >>> np.sum([1000*pq.metre/pq.kilometre, 1])
+    >>> float(np.sum([1000*pq.metre/pq.kilometre, 1]))
     1001.0
     >>> be_np = Backend(np)
     >>> be_np.sum([[1000*pq.metre/pq.kilometre, 1], [3, 4]], axis=1)
