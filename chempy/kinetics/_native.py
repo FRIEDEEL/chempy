@@ -114,6 +114,38 @@ def _get_subst_comp(rsys, odesys, comp_keys, skip_keys):
     return subst_comp
 
 
+def _patch_gsl_numpy2_compat(mod):
+    """Wrap GSL Cython integrate_* functions for NumPy 2.x compatibility.
+
+    pyodesys._integrate_native converts atol to a 1D array via np.atleast_1d()
+    before passing it to the GSL Cython wrapper, which expects a C ``double``.
+    NumPy 2.x no longer allows implicit conversion of 1D arrays to Python
+    scalars, causing ``TypeError: only 0-dimensional arrays can be converted
+    to Python scalars``.  Wrapping the functions here converts size-1 arrays
+    back to Python floats before they reach the Cython boundary.
+    """
+    try:
+        import numpy as _np
+    except ImportError:
+        return
+
+    def _make_wrapper(orig_fn):
+        def _wrapper(*args, atol=1e-8, rtol=1e-8, **kw):
+            if isinstance(atol, _np.ndarray) and atol.size == 1:
+                atol = float(atol.flat[0])
+            if isinstance(rtol, _np.ndarray) and rtol.size == 1:
+                rtol = float(rtol.flat[0])
+            return orig_fn(*args, atol=atol, rtol=rtol, **kw)
+        _wrapper._numpy2_patched = True
+        return _wrapper
+
+    for fname in ('integrate_adaptive', 'integrate_predefined'):
+        orig = getattr(mod, fname, None)
+        if orig is None or getattr(orig, '_numpy2_patched', False):
+            continue
+        setattr(mod, fname, _make_wrapper(orig))
+
+
 def get_native(rsys, odesys, integrator, skip_keys=(0,), steady_state_root=False, conc_roots=None,
                native_code_kw=None, **kw):
     comp_keys = Substance.composition_keys(rsys.substances.values(), skip_keys=skip_keys)
@@ -174,4 +206,9 @@ def get_native(rsys, odesys, integrator, skip_keys=(0,), steady_state_root=False
         ns_extend['p_includes'] = set()
     ns_extend['p_includes'] |= {"<type_traits>",  "<vector>"}
     native_code_kw["namespace_extend"] = ns_extend
-    return native_sys[integrator].from_other(odesys, **native_code_kw, **kw)
+    native = native_sys[integrator].from_other(odesys, **native_code_kw, **kw)
+    if integrator == 'gsl':
+        _mod = getattr(getattr(native, '_native', None), 'mod', None)
+        if _mod is not None:
+            _patch_gsl_numpy2_compat(_mod)
+    return native
