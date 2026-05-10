@@ -5,9 +5,30 @@ from pkg_resources import parse_requirements, parse_version
 
 import os
 from operator import lt, le, eq, ne, ge, gt
+import re
 import pytest
 
 _relop = dict(zip('< <= == != >= >'.split(), (lt, le, eq, ne, ge, gt)))
+
+
+def _parse_version(vs):
+    parts = []
+    for part in re.split(r'[.\-+_]', vs):
+        match = re.match(r'(\d+)', part)
+        if match:
+            parts.append(int(match.group(1)))
+        elif part:
+            break
+    return tuple(parts)
+
+
+def _parse_requirement(req):
+    for rel in sorted(_relop, key=len, reverse=True):
+        if rel in req:
+            name, version = req.split(rel, 1)
+            return name.strip(), rel, _parse_version(version.strip())
+    return req.strip(), None, None
+
 
 
 class requires(object):
@@ -34,21 +55,22 @@ class requires(object):
     def __init__(self, *reqs):
         self.missing = []
         self.incomp = []
-        self.requirements = list(parse_requirements(reqs))
-        for req in self.requirements:
+        for req in reqs:
+            name, rel, version = _parse_requirement(req)
+
             try:
                 mod = __import__(req.project_name)
             except ImportError:
                 self.missing.append(req.project_name)
             else:
-                try:
-                    ver = parse_version(mod.__version__)
-                except AttributeError:
-                    pass
-                else:
-                    for rel, vstr in req.specs:
-                        if not _relop[rel](ver, parse_version(vstr)):
-                            self.incomp.append(str(req))
+                if version is not None:
+                    try:
+                        found_version = _parse_version(mod.__version__)
+                    except AttributeError:
+                        pass
+                    else:
+                        if not _relop[rel](found_version, version):
+                            self.incomp.append(req)
 
     def __call__(self, cb):
         r = 'Unfulfilled requirements.'
