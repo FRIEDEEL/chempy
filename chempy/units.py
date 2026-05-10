@@ -384,7 +384,7 @@ def to_unitless(value, new_unit=None):
         return value
     elif isinstance(value, Iterable) and getattr(value, 'ndim', -1) != 0:
         if len(value) == 0:
-            return to_unitless(value[0], new_unit)
+            return np.array([])
         else:
             return np.array([to_unitless(elem, new_unit) for elem in value])
     elif isinstance(value, str):
