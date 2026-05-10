@@ -15,7 +15,7 @@ from .. import ReactionSystem, Equilibrium
 from ..units import get_derived_unit, to_unitless, default_units as u
 
 
-def _dominant_reaction_effects(substance_key, rsys, rates, linthreshy, eqk1, eqk2, eqs):
+def _dominant_reaction_effects(substance_key, rsys, rates, linthresh, eqk1, eqk2, eqs):
     tot = np.zeros(rates.shape[0])
     reaction_effects = rsys.per_reaction_effect_on_substance(substance_key)
     data = []
@@ -30,7 +30,7 @@ def _dominant_reaction_effects(substance_key, rsys, rates, linthreshy, eqk1, eqk
         else:
             y = n*rates[..., ri]
             rxn = rsys.rxns[ri]
-        if np.all(np.abs(y) < linthreshy):
+        if np.all(np.abs(y) < linthresh):
             continue
         data.append((y, rxn))
     return data, tot
@@ -50,7 +50,7 @@ def _combine_rxns_to_eq(rsys):
 
 def plot_reaction_contributions(
         xyp, rsys, rate_exprs_cb, substance_keys=None, varied=None, axes=None,
-        total=False, linthreshy=1e-9, relative=False, xscale='log', yscale='symlog',
+        total=False, linthresh=1e-9, relative=False, xscale='log', yscale='symlog',
         xlabel='Time', ylabel=None, combine_equilibria=False, selection=slice(None),
         unit_registry=None):
     """ Plots per reaction contributions to concentration evolution of a substance.
@@ -82,7 +82,7 @@ def plot_reaction_contributions(
     eqk1, eqk2, eqs = _combine_rxns_to_eq(rsys) if combine_equilibria else ([], [], [])
 
     for sk, ax in zip(substance_keys, axes):
-        data, tot = _dominant_reaction_effects(sk, rsys, rates, linthreshy, eqk1, eqk2, eqs)
+        data, tot = _dominant_reaction_effects(sk, rsys, rates, linthresh, eqk1, eqk2, eqs)
         factor = 1/xyp[1][:, rsys.as_substance_index(sk)] if relative else 1
         if total:
             ax.plot(varied, factor*tot, c='k', label='Total', linewidth=2, ls=':')
@@ -98,9 +98,9 @@ def plot_reaction_contributions(
             ttl_template = r'\mathrm{$%s$}'
 
         if yscale == 'symlog':
-            ax.axhline(linthreshy, linestyle='--', color='k', linewidth=.5)
-            ax.axhline(-linthreshy, linestyle='--', color='k', linewidth=.5)
-            ax.set_yscale(yscale, linthresh=linthreshy)
+            ax.axhline(linthresh, linestyle='--', color='k', linewidth=.5)
+            ax.axhline(-linthresh, linestyle='--', color='k', linewidth=.5)
+            ax.set_yscale(yscale, linthresh=linthresh)
         else:
             ax.set_yscale(yscale)
 
@@ -115,14 +115,14 @@ def plot_reaction_contributions(
         ax.legend(loc='best')
 
 
-def dominant_reactions_graph(concs, rate_exprs_cb, rsys, substance_key, linthreshy=1e-9,
+def dominant_reactions_graph(concs, rate_exprs_cb, rsys, substance_key, linthresh=1e-9,
                              fname='dominant_reactions_graph.png', relative=False,
                              combine_equilibria=False, **kwargs):
     from ..util.graph import rsys2graph
     rates = rate_exprs_cb(0, concs)
     eqk1, eqk2, eqs = _combine_rxns_to_eq(rsys) if combine_equilibria else ([], [], [])
     rrate, rxns = zip(*_dominant_reaction_effects(
-        substance_key, rsys, rates, linthreshy, eqk1, eqk2, eqs)[0])
+        substance_key, rsys, rates, linthresh, eqk1, eqk2, eqs)[0])
     rsys = ReactionSystem(rxns, rsys.substances, rsys.name)
     lg_rrate = np.log10(np.abs(rrate))
     rsys2graph(rsys, fname=fname, penwidths=1 + lg_rrate - np.min(lg_rrate), **kwargs)
