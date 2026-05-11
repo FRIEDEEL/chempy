@@ -20,7 +20,7 @@ for pypkg in pyodeint pygslodeiv2 pycompilation pycodeexport pycvodes pykinsol s
             pypkg_fqn="git+https://github.com/bjodah/pycompilation@master#egg=pycompilation"
             ;;
         pycodeexport)
-            pypkg_fqn="git+https://github.com/bjodah/pycodeexport@qulify-extension-name-and-new-ci#egg=pycodeexport"
+            pypkg_fqn="git+https://github.com/bjodah/pycodeexport@master#egg=pycodeexport"
             ;;
         pycvodes)
             pypkg_fqn="git+https://github.com/bjodah/pycvodes@may21#egg=pycvodes"
