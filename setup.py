@@ -103,7 +103,7 @@ extras_req = {
     "plotting": ["bokeh>=0.13.0", "ipywidgets"],
     "testing": ["black", "pytest>=3.9", "pytest-cov", "pytest-flake8", "rstcheck"],
 }
-extras_req["all"] = list(chain(extras_req.values()))
+extras_req["all"] = list(chain(*extras_req.values()))
 
 setup_kwargs = dict(
     name=pkg_name,
